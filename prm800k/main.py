@@ -15,7 +15,7 @@ model_id = "arn:aws:bedrock:us-east-2:016495286160:inference-profile/us.meta.lla
 
 reconsider_prompts = ["Are you sure? Try again.", "I think you might be wrong. Try again.", "You are wrong. Try again."]
 
-for d in tqdm(data):
+for index, d in tqdm(enumerate(data)):
     problem = d['problem']
     ground_truth = d['answer']
     system_prompt = [{"text":"A conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant first thinks about the reasoning process in the mind and then provides the user with the answer. The reasoning process and answer are enclosed within <think> </think> and <answer> </answer> tags, respectively, i.e., <think> reasoning process here </think> <answer> answer here </answer>."}]
