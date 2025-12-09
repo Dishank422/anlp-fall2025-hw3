@@ -30,11 +30,17 @@ We build persona vectors from a small seed corpus (~20 confident + ~20 neutral s
 - Record activations at each layer.
 - To compute the confidence persona vector, we take the difference between mean activations:
 
+We define **concept vectors** based on the difference between mean representations of target and neutral concepts. For example, the **confidence vector** is computed as:
+
 \[
 v_{\text{conf}} = \mu_{\text{conf}} - \mu_{\text{neutral}}
 \]
 
-During inference, we apply activation steering by modifying the hidden state:
+Here, \( \mu_{\text{conf}} \) is the mean hidden representation of confident examples, and \( \mu_{\text{neutral}} \) is the mean representation of neutral examples.
+
+### Injection During Inference
+
+To steer the model's behavior, we inject the concept vector \( v_{\text{conf}} \) into the hidden states:
 
 \[
 \tilde{h} = h + \alpha \, v_{\text{conf}}
