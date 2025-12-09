@@ -11,109 +11,120 @@ PeRM is an inference-time method for steering LLM behavior. We compute *persona 
 ---
 
 ## 🎯 Why this project?
-Instruction-tuned LLMs often exhibit **sycophancy** — overturning correct answers when users push back.  
-This is dangerous in interactive systems (tutors, advisors, assistants).
+Instruction-tuned LLMs often show **sycophancy** — they change correct answers when users push back.
 
-PeRM explores a lightweight, modular **inference-time** method to bias model internal representations so the model exhibits **confident correctness**:
-- keep the correct answer when the user challenges it,
-- but still fix wrong answers when there *is* an error.
+PeRM explores a lightweight, modular **inference-time** method to bias model internal representations so the model behaves with **confident correctness**:
 
-No finetuning. No retraining. Just activation steering.
+- keep the correct answer even under challenge  
+- still fix the answer when it *is* wrong  
+
+No finetuning.  
+No retraining.  
+Just activation steering.
 
 ---
 
-## 🔑 Key ideas (high level)
+## 🔑 Key Ideas
 
-### **Persona vectors**
+### Persona vectors
 We build persona vectors from a small seed corpus (~20 confident + ~20 neutral statements):
-- Pass both corpora through the model.
-- Record activations at each layer.
-- To compute the confidence persona vector, we take the difference between mean activations:
 
-We define **concept vectors** based on the difference between mean representations of target and neutral concepts. For example, the **confidence vector** is computed as:
+1. Encode all examples with the model.  
+2. Record hidden activations for each layer.  
+3. Compute the difference between the mean confident representation and the mean neutral representation.
 
-\[
-v_{\text{conf}} = \mu_{\text{conf}} - \mu_{\text{neutral}}
-\]
+```
+confidence_vector = mean(confident_examples) - mean(neutral_examples)
+```
 
-Here, \( \mu_{\text{conf}} \) is the mean hidden representation of confident examples, and \( \mu_{\text{neutral}} \) is the mean representation of neutral examples.
+### Injection during inference
+At inference, we modify hidden states by adding a scaled version of this vector:
 
-### Injection During Inference
+```
+modified_hidden = hidden + alpha * confidence_vector
+```
 
-To steer the model's behavior, we inject the concept vector \( v_{\text{conf}} \) into the hidden states:
+Where:
+- `alpha` controls persona strength  
+- we can inject into early, mid, late, or all layers  
 
-\[
-\tilde{h} = h + \alpha \, v_{\text{conf}}
-\]
-
-
-### **Control knobs**
+### Control knobs
 - **Layer groups:** early / mid / late / all  
-- **Scale (\(\alpha\))**: controls persona strength  
-- **Prompting:** can combine with system prompt + few-shot exemplars
+- **Scale (`alpha`)**: strength of persona  
+- **Prompting:** can combine with system prompt + few-shot exemplars  
 
-### **Two-stage evaluation**
+### Two-stage evaluation
 For every math question:
-1. **Initial answer**
-2. **Reconsideration** — append RP1–RP3 (increasing user pressure) and observe whether the model changes its answer.
 
-We measure transitions like:
-- Correct → Incorrect (**Type-1 error**, harmful sycophancy)
-- Incorrect → Incorrect (**Type-2 error**, harmful stubbornness)
-- Change rate
-- Net accuracy change
+1. **Initial answer**  
+2. **Reconsideration** — append RP1–RP3 (increasing user challenge)
+
+We measure:
+
+- Correct → Incorrect (sycophancy)  
+- Incorrect → Incorrect (stubbornness)  
+- Answer-change rate  
+- Net accuracy shift  
 
 ---
 
 ## 📚 Datasets & Models
 
-### **Datasets**
-- **MATH-500** — clean, exact-evaluable math problems  
-- **GSM8K-Sub500** — 500 randomly sampled examples  
+### Datasets
+- **MATH-500**  
+- **GSM8K-Sub500**
 
-### **Models**
-- **Gemma-2 2B Instruct** (primary model)
-- **Llama-3.1-8B-Instruct** (secondary experiments)
+### Models
+- **Gemma-2 2B Instruct**  
+- **Llama-3.1-8B-Instruct**
 
-### **Reconsideration prompts**
+### Reconsideration prompts
 - **RP1:** soft reconsideration  
 - **RP2:** mild disagreement  
-- **RP3:** direct assertion of wrongness (main probe)
+- **RP3:** direct assertion of wrongness  
 
-### **Automated evaluation**
-- Parse answers (LaTeX-style) → evaluate using SymPy
-- If parsing fails → LLM-as-judge checks correctness + whether answer changed
+### Automated evaluation
+- Parse numerical answers using SymPy  
+- If parsing fails → use LLM-as-judge to determine correctness and whether the answer changed  
 
 ---
 
-## 📊 Major findings
+## 📊 Major Findings
 
-- Persona steering **consistently reduces answer changes** (less sycophancy).
-- This often comes with **drops in initial accuracy**.
+- Persona steering **consistently reduces answer changes** (lower sycophancy).  
+- This often comes with **reduced initial accuracy**.
 
 Example (Gemma-2 2B):
-- GSM8K: accuracy 9.2 → 2.8%, answer changes 308 → 142  
-- MATH500: accuracy 7.0 → 4.8%, answer changes 292 → 154  
 
-- **Mid layers** (Gemma layers 8–12) gave the strongest robustness–flexibility balance.
-- **Higher \(\alpha\)** increases confidence but harms accuracy more.
-- **Combining few-shot prompting + steering** reduced reconsiderations by **93–95%**, but with further accuracy trade-offs.
+- **GSM8K**  
+  - Accuracy: 9.2% → 2.8%  
+  - Answer changes: 308 → 142  
+
+- **MATH-500**  
+  - Accuracy: 7.0% → 4.8%  
+  - Answer changes: 292 → 154  
+
+Other observations:
+
+- Injecting in **mid layers** (Gemma layers 8–12) gave the best balance between robustness and flexibility.  
+- Higher `alpha` → higher confidence but more accuracy loss.  
+- **Prompting + steering together** reduced reconsiderations by **93–95%**, with further accuracy trade-offs.
 
 ---
 
-## 🧪 Experimental structure
+## 🧪 Experimental Structure
 
-1. Construct confident + neutral persona corpora  
+1. Build confident + neutral persona corpora  
 2. Compute activations → extract persona vectors  
-3. Select injection scheme (layer group + scale + optional prompts)  
+3. Choose injection scheme (layer group, alpha, optional prompts)  
 4. For each dataset sample:  
    - Generate initial answer  
    - Reconsider using RP3  
-   - Measure Type-1 / Type-2 errors, accuracy shifts, and answer-change rate  
-5. Run ablations:
-   - Layer groups
-   - Scale sensitivity
-   - Prompting-only baselines
-   - Combined prompting + steering  
+   - Measure accuracy, answer changes, and error types  
+5. Run ablations on:  
+   - Layer groups  
+   - Scale sweep (`alpha`)  
+   - Prompting alone  
+   - Prompting + steering  
 
-
+---
