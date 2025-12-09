@@ -128,3 +128,7 @@ Other observations:
    - Prompting + steering  
 
 ---
+
+## Code Execution
+
+math500_reasoning_evaluation.py is the main script, there are some helper scripts for dataset leading and evluations
