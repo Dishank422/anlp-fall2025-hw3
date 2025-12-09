@@ -28,14 +28,18 @@ No finetuning. No retraining. Just activation steering.
 We build persona vectors from a small seed corpus (~20 confident + ~20 neutral statements):
 - Pass both corpora through the model.
 - Record activations at each layer.
-- Compute layer-wise difference:
-  \[
-  v_{\text{conf}} = \mu_{\text{conf}} - \mu_{\text{neutral}}
-  \]
-Inject during inference:
+- To compute the confidence persona vector, we take the difference between mean activations:
+
 \[
-\tilde h = h + \alpha v_{\text{conf}}.
+v_{\text{conf}} = \mu_{\text{conf}} - \mu_{\text{neutral}}
 \]
+
+During inference, we apply activation steering by modifying the hidden state:
+
+\[
+\tilde{h} = h + \alpha \, v_{\text{conf}}
+\]
+
 
 ### **Control knobs**
 - **Layer groups:** early / mid / late / all  
